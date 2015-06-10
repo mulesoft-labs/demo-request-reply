@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.6.1"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <flow name="demo-request-replyFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/test" doc:name="HTTP"/>
+        <set-payload value="#[[['key':'1'],['key':'10'],['key':'100'],['key':'1000'],['key':'10000']]]" doc:name="Set Payload"/>
+        <logger message="Payload In: #[payload]" level="INFO" doc:name="Logger"/>
+        <flow-ref name="demo-request-replySub_Flow" doc:name="demo-request-replySub_Flow"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+    </flow>
+    <sub-flow name="demo-request-replySub_Flow">
+        <request-reply doc:name="Request-Reply">
+            <vm:outbound-endpoint exchange-pattern="one-way" path="vm.parallel" doc:name="VM"/>
+            <vm:inbound-endpoint exchange-pattern="one-way" path="vm.return" doc:name="VM"/>
+        </request-reply>
+    </sub-flow>
+    <flow name="trigger-muilt-threading">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="vm.parallel" doc:name="VM"/>
+        <collection-splitter doc:name="Collection Splitter"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="vm.parallel.logic" doc:name="VM"/>
+    </flow>
+    <flow name="aggregate-collection">
+    	<vm:inbound-endpoint exchange-pattern="one-way" path="vm.aggregate" doc:name="VM"/>
+        <collection-aggregator failOnTimeout="true" doc:name="Collection Aggregator"/>
+        <logger message="Aggregated Payload #[payload]" level="INFO" doc:name="Logger"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="vm.return" doc:name="VM"/>
+    </flow>
+    <flow name="demo-request-replyFlow1">
+        <vm:inbound-endpoint exchange-pattern="one-way"  doc:name="VM" path="vm.parallel.logic"/>
+        <logger message="Parallel In #[payload]" level="INFO" doc:name="Logger"/>
+        <expression-component doc:name="Expression"><![CDATA[#[payload.put('value', payload.get('key') * 2)]]]></expression-component>
+        <logger message="Parallel Out #[payload]" level="INFO" doc:name="Logger"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="vm.aggregate" doc:name="VM"/>
+    </flow>
+</mule>
